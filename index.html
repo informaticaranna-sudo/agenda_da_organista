@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Organista no Ritmo</title>
+<style>
+:root{--bg:#121212;--card:#1e1e1e;--tx:#f3dede;--mut:#9a9a9a;--pk:#f06292;--ok:#6ee7b7}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:Roboto,system-ui,sans-serif;padding-bottom:84px}
+main{max-width:640px;margin:0 auto;padding:20px}
+h1{font-size:26px;margin:4px 0}h2{font-size:20px;margin:24px 0 12px}
+.eyebrow{color:var(--pk);font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.mut{color:var(--mut);font-size:14px}
+input,textarea{width:100%;background:var(--card);color:var(--tx);border:0;border-radius:14px;padding:15px;font:inherit;margin-bottom:12px}
+textarea{min-height:110px;resize:vertical}
+button{font:inherit;cursor:pointer}
+.btn{width:100%;background:var(--pk);color:#3a0a1c;border:0;border-radius:14px;padding:14px;font-weight:700}
+.link{background:none;border:0;color:var(--pk);margin-top:16px;width:100%}
+.hero{background:var(--pk);color:#fff;border-radius:28px;padding:24px;margin-top:18px}
+.hero b{font-size:44px;margin-right:10px}
+.hero button{background:#fff;color:var(--pk);border:0;border-radius:12px;padding:10px 18px;font-weight:700;margin-top:18px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.tile{background:var(--card);border:0;border-radius:20px;height:130px;color:var(--mut);font-size:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
+.tile b{font-size:22px}
+.row{display:flex;align-items:center;gap:14px;background:var(--card);border-radius:16px;padding:14px;margin-bottom:10px}
+.ico{width:40px;height:40px;border-radius:50%;background:#46262f;color:var(--pk);display:grid;place-items:center;flex:none}
+.row .t{flex:1}.row .t b{display:block;font-size:17px}.row .t span{color:var(--mut);font-size:13px}
+.mk{background:none;border:0;color:var(--mut);font-weight:700}
+.mk.done{color:var(--ok)}
+.grp{color:var(--pk);font-weight:700;margin:20px 0 10px}
+.seg{display:flex;border:1px solid #666;border-radius:99px;overflow:hidden;margin-bottom:18px}
+.seg button{flex:1;background:none;border:0;color:var(--tx);padding:11px 4px;font-size:14px}
+.seg .on{background:var(--pk);color:#fff}
+label{display:block;font-weight:700;font-size:14px;margin:14px 0 8px}
+.back{background:none;border:0;color:var(--pk);padding:0;margin-bottom:8px}
+nav{position:fixed;bottom:0;left:0;right:0;background:var(--bg);border-top:1px solid #222;display:flex;justify-content:space-around;padding:10px 0}
+nav button{background:none;border:0;color:var(--mut);font-size:13px;padding:6px 16px}
+nav .on{color:var(--pk);font-weight:700}
+.hist{background:var(--card);border-radius:14px;padding:12px;margin-bottom:8px;font-size:14px}
+.top{display:flex;justify-content:space-between;align-items:flex-start}
+.out{background:none;border:0;color:var(--tx);font-size:22px}
+</style>
+</head>
+<body>
+<main id="app"></main>
+<nav id="nav" hidden></nav>
+
+<script>
+/* ===== Catálogo ===== */
+const maiores=["Dó","Sol","Ré","Lá","Mi","Si","Fá#","Dó#","Fá","Sib","Mib","Láb","Réb","Solb","Dób"];
+const menores=["Lá","Mi","Si","Fá#","Dó#","Sol#","Ré#","Lá#","Ré","Sol","Dó","Fá","Sib","Mib","Láb"];
+const seq=(n,f)=>Array.from({length:n},(_,i)=>f(i+1));
+const it=(id,secao,grupo,titulo,sub)=>({id,secao,grupo,titulo,sub});
+function volume(v,ex,es,hinos=[]){const s="volume"+v,g="Volume "+v;
+  return[...seq(ex,i=>it(`${s}-exercicio-${i}`,s,g+" · Exercícios","Exercício "+i,g)),
+         ...seq(es,i=>it(`${s}-estudo-${i}`,s,g+" · Estudos","Estudo "+i,g)),
+         ...hinos.map(h=>it(`${s}-hino-${h}`,s,g+" · Hinos","Hino "+h,g))]}
+const catalogo=[
+  ...maiores.map(n=>it("escala-maior-"+n,"escalas","Escalas Maiores",n+" Maior","Escala Maior")),
+  ...menores.map(n=>it("escala-menor-"+n,"escalas","Escalas Menores",n+" Menor","Escala Menor")),
+  ...seq(480,i=>it("hino-"+i,"hinos","Hinos","Hino "+i,"Hino")),
+  ...seq(5,i=>it("coro-"+i,"hinos","Coros","Coro "+i,"Coro")),
+  ...volume(1,22,40,[131,158,468]),...volume(2,20,30),...volume(3,10,25),...volume(4,10,12),
+  ...seq(16,i=>it("msa-"+i,"msa","MSA","Fase "+i,"MSA"))];
+const porId=Object.fromEntries(catalogo.map(i=>[i.id,i]));
+const secoes=[
+  {k:"msa",nome:"fases MSA",cor:"#38bdf8"},{k:"escalas",nome:"escalas",cor:"#e040fb"},
+  {k:"hinos",nome:"hinos",cor:"#fb923c"},{k:"volume1",nome:"Volume 1",cor:"#3b82f6"},
+  {k:"volume2",nome:"Volume 2",cor:"#fb923c"},{k:"volume3",nome:"Volume 3",cor:"#e040fb"},
+  {k:"volume4",nome:"Volume 4",cor:"#6ee7b7"}];
+/* Contador de hinos considera só o grupo "Hinos" (coros ficam fora dos 480). */
+const conta=k=>catalogo.filter(i=>i.secao===k&&i.grupo!=="Coros");
+
+/* ===== Armazenamento ===== */
+const ls={get(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}},
+          set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
+let user=ls.get("orn:sessao",null), tab="hoje", view=null;
+const regs=()=>ls.get("orn:regs:"+user,[]);
+const salvaRegs=r=>ls.set("orn:regs:"+user,r);
+const hoje=()=>new Date().toISOString().slice(0,10);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const feitos=()=>new Set(regs().filter(r=>r.resultado==="passou").map(r=>r.itemId));
+
+/* ===== Telas ===== */
+const app=document.getElementById("app"),nav=document.getElementById("nav");
+let modoCadastro=false, resultado="passou";
+
+function render(){
+  nav.hidden=!user;
+  if(!user)return login();
+  nav.innerHTML=[["hoje","🏠","Hoje"],["progresso","🏆","Progresso"],["config","⚙️","Configurações"]]
+    .map(([k,i,n])=>`<button class="${tab===k&&!view?"on":""}" onclick="go('${k}')">${i}<br>${n}</button>`).join("");
+  if(view?.t==="lista")return lista();
+  if(view?.t==="registro")return registro();
+  ({hoje:telaHoje,progresso:telaProgresso,config:telaConfig})[tab]();
+}
+function go(k){tab=k;view=null;render();scrollTo(0,0)}
+
+function login(){
+  app.innerHTML=`<div style="text-align:center;margin-top:40px"><div style="font-size:56px;color:var(--pk)">♪</div>
+  <h1>${modoCadastro?"Criar conta":"Bem-vindo de volta"}</h1></div><div style="margin-top:28px">
+  <input id="lg" placeholder="Login" autocapitalize="none">
+  <input id="sn" type="password" placeholder="Senha">
+  ${modoCadastro?'<input id="ins" placeholder="Seu instrumento">':""}
+  <p id="erro" class="mut" style="color:#ff8a80;min-height:18px"></p>
+  <button class="btn" onclick="entrar()">${modoCadastro?"Cadastrar":"Entrar"}</button>
+  <button class="link" onclick="modoCadastro=!modoCadastro;render()">${modoCadastro?"Já tem conta? Entrar":"Não tem uma conta? Cadastre-se"}</button></div>`;
+}
+function entrar(){
+  const lg=lgv("lg").trim(),sn=lgv("sn"),us=ls.get("orn:usuarios",{}),erro=m=>document.getElementById("erro").textContent=m;
+  if(!lg||!sn)return erro("Preencha login e senha.");
+  if(modoCadastro){
+    if(us[lg])return erro("Este login já existe.");
+    us[lg]={sn,ins:lgv("ins").trim()};ls.set("orn:usuarios",us);
+  }else if(!us[lg]||us[lg].sn!==sn)return erro("Login ou senha incorretos.");
+  user=lg;ls.set("orn:sessao",user);tab="hoje";view=null;render();
+}
+const lgv=id=>document.getElementById(id).value;
+
+function telaHoje(){
+  const us=ls.get("orn:usuarios",{})[user]||{},r=regs(),f=feitos();
+  const hojeN=r.filter(x=>x.data===hoje()||x.criado===hoje()).length;
+  const concl=r.filter(x=>x.resultado==="passou"&&x.data===hoje()).length;
+  app.innerHTML=`<div class="top"><div><div class="eyebrow">Organista no ritmo</div><h1>Olá, ${esc(user)}!</h1>
+  ${us.ins?`<div class="mut">Instrumento: ${esc(us.ins)}</div>`:""}<div>Um pequeno passo musical para hoje.</div></div>
+  <button class="out" title="Sair" onclick="sair()">⎋</button></div>
+  <div class="hero"><div class="eyebrow" style="color:#fff">Seu progresso hoje</div><div style="margin-top:14px"><b>${concl}</b>registro(s) de estudo concluídos.</div>
+  <button onclick="go('progresso')">Ver detalhes</button></div>
+  <h2>Hoje no seu ritmo</h2><div class="grid">
+  <div class="tile"><b style="color:var(--pk)">${hojeN}</b>prática hoje</div>
+  ${secoes.map(s=>{const l=conta(s.k);return `<button class="tile" onclick="abre('${s.k}')"><b style="color:${s.cor}">${l.filter(i=>f.has(i.id)).length}/${l.length}</b>${s.nome}</button>`}).join("")}
+  </div>`;
+}
+function sair(){user=null;ls.set("orn:sessao",null);render()}
+
+function abre(k){view={t:"lista",k};render();scrollTo(0,0)}
+function lista(){
+  const f=feitos(),nome=secoes.find(s=>s.k===view.k).nome;let g="";
+  app.innerHTML=`<button class="back" onclick="go('${tab}')">← Voltar</button><h1 style="text-transform:capitalize">${nome}</h1>`+
+  catalogo.filter(i=>i.secao===view.k).map(i=>{
+    const h=i.grupo!==g?`<div class="grp">${esc(i.grupo)}</div>`:"";g=i.grupo;
+    return h+`<div class="row"><div class="ico">♪</div><div class="t"><b>${esc(i.titulo)}</b><span>${esc(i.sub)}</span></div>
+    <button class="mk ${f.has(i.id)?"done":""}" onclick="marcar('${i.id}')">${f.has(i.id)?"✓ Marcado":"Marcar"}</button></div>`}).join("");
+}
+
+function marcar(id){view={t:"registro",id,volta:view};resultado="passou";render();scrollTo(0,0)}
+function registro(){
+  const i=porId[view.id],hist=regs().filter(r=>r.itemId===view.id).reverse();
+  const R={passou:"✓ Passou",nao_passou:"✕ Não passou",em_avaliacao:"⏳ Em avaliação"};
+  app.innerHTML=`<button class="back" onclick="view=view.volta;render()">← Voltar</button>
+  <h1>Registrar progresso</h1><div class="mut">${esc(i.titulo)} · ${esc(i.sub)}</div>
+  <label>Resultado</label><div class="seg">${Object.entries(R).map(([k,n])=>`<button class="${resultado===k?"on":""}" onclick="resultado='${k}';render()">${n}</button>`).join("")}</div>
+  <label>Data que foi passada / Conclusão</label><input id="dt" type="date" value="${hoje()}">
+  <label>Anotações</label><textarea id="an" placeholder="Descreva dificuldades, evolução, o que revisar..."></textarea>
+  <button class="btn" onclick="salvar()">Salvar</button>
+  <h2>Histórico</h2>${hist.length?hist.map(r=>`<div class="hist"><b>${R[r.resultado]}</b> · ${r.data.split("-").reverse().join("/")}<br><span class="mut">${esc(r.anotacoes||"Sem anotações")}</span></div>`).join(""):'<div class="mut">Nenhum registro anterior.</div>'}`;
+}
+function salvar(){
+  const d=document.getElementById("dt").value||hoje(),a=document.getElementById("an").value;
+  const r=regs();r.push({itemId:view.id,resultado,data:d,anotacoes:a,criado:hoje()});salvaRegs(r);
+  view=view.volta;render();
+}
+
+function telaProgresso(){
+  const f=feitos(),r=regs();
+  app.innerHTML=`<h1>Progresso</h1><div class="mut">${r.length} registro(s) no total · ${f.size} item(ns) concluído(s)</div><h2>Por seção</h2>`+
+  secoes.map(s=>{const l=conta(s.k),n=l.filter(i=>f.has(i.id)).length,p=Math.round(n/l.length*100);
+    return `<div class="row" style="display:block;cursor:pointer" onclick="abre('${s.k}')"><div style="display:flex;justify-content:space-between"><b style="text-transform:capitalize">${s.nome}</b><span class="mut">${n}/${l.length}</span></div>
+    <div style="height:8px;background:#333;border-radius:9px;margin-top:10px"><div style="height:8px;width:${p}%;background:${s.cor};border-radius:9px"></div></div></div>`}).join("");
+}
+function telaConfig(){
+  app.innerHTML=`<h1>Configurações</h1><div class="mut">Conectado como ${esc(user)}</div>
+  <h2>Dados</h2><p class="mut">Os registros ficam salvos apenas neste navegador.</p>
+  <button class="btn" onclick="sair()">Sair</button>
+  <button class="link" style="color:#ff8a80" onclick="if(confirm('Apagar todos os seus registros?')){salvaRegs([]);render()}">Apagar meus registros</button>`;
+}
+render();
+</script>
+</body>
+</html>
