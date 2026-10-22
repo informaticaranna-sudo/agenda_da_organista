@@ -4,6 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Organista no Ritmo</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#121212">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Organista">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <style>
 :root{--bg:#121212;--card:#1e1e1e;--tx:#f3dede;--mut:#9a9a9a;--pk:#f06292;--ok:#6ee7b7}
 *{box-sizing:border-box}
@@ -199,6 +207,7 @@ function telaConfig(){
   <button class="link" onclick="document.getElementById('rest').click()">Restaurar backup de um arquivo</button>
   <input id="rest" type="file" accept=".json,application/json" hidden onchange="restaurar(this)">
   <p id="msg" class="mut" style="min-height:18px"></p>
+  ${instalador?'<button class="btn" style="margin-bottom:14px" onclick="instalar()">📲 Instalar aplicativo</button>':""}
   <h2>Dados</h2><p class="mut">Os registros ficam salvos neste navegador. Faça backup com frequência.</p>
   <button class="btn" onclick="sair()">Sair</button>
   <button class="link" style="color:#ff8a80" onclick="if(confirm('Apagar todos os seus registros e o calendário de práticas?')){salvaRegs([]);salvaPratica({});render()}">Apagar meus registros</button>`;
@@ -278,6 +287,13 @@ function imprimir(){
   <h2>Calendário de prática</h2><table><tr><th>Data</th><th>Situação</th><th>Anotações</th></tr>${diasH||'<tr><td colspan="3">Nenhum dia registrado.</td></tr>'}</table>`;
   window.print();
 }
+/* ===== Instalação (PWA) ===== */
+let instalador=null;
+window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();instalador=e;if(user&&tab==="config"&&!view)render()});
+window.addEventListener("appinstalled",()=>{instalador=null;if(user&&tab==="config"&&!view)render()});
+async function instalar(){if(!instalador)return;instalador.prompt();await instalador.userChoice;instalador=null;render()}
+if("serviceWorker" in navigator&&location.protocol.startsWith("http"))
+  addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
 render();
 </script>
 </body>
