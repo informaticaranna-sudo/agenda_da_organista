@@ -40,11 +40,30 @@ nav .on{color:var(--pk);font-weight:700}
 .hist{background:var(--card);border-radius:14px;padding:12px;margin-bottom:8px;font-size:14px}
 .top{display:flex;justify-content:space-between;align-items:flex-start}
 .out{background:none;border:0;color:var(--tx);font-size:22px}
+
+.meses{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.mes{background:var(--card);border-radius:16px;padding:12px}
+.mes b{display:block;margin-bottom:8px;color:var(--pk)}
+.cg{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;text-align:center}
+.wd{font-style:normal;font-size:10px;color:var(--mut)}
+.dia{aspect-ratio:1;border:0;border-radius:50%;background:none;color:var(--tx);font-size:12px;padding:0;position:relative}
+.dia.sim{background:#1f6f54;color:#fff}.dia.nao{background:#7a2a2a;color:#fff}
+.dia.hj{outline:2px solid var(--pk)}
+.dia.nt::after{content:"";position:absolute;right:3px;top:3px;width:5px;height:5px;border-radius:50%;background:#fff}
+.leg{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;font-size:12px;color:var(--mut);margin:10px 0 16px}
+.leg i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px}
+#print{display:none}
+@media print{body{background:#fff;color:#000;padding:0}main,nav{display:none!important}
+#print{display:block;font-family:Arial,sans-serif;font-size:12px}
+#print table{width:100%;border-collapse:collapse;margin-bottom:16px}
+#print td,#print th{border:1px solid #999;padding:4px 6px;text-align:left;vertical-align:top}
+#print h1{font-size:20px}#print h2{font-size:15px;margin:16px 0 6px}}
 </style>
 </head>
 <body>
 <main id="app"></main>
 <nav id="nav" hidden></nav>
+<div id="print"></div>
 
 <script>
 /* ===== Catálogo ===== */
@@ -93,6 +112,8 @@ function render(){
     .map(([k,i,n])=>`<button class="${tab===k&&!view?"on":""}" onclick="go('${k}')">${i}<br>${n}</button>`).join("");
   if(view?.t==="lista")return lista();
   if(view?.t==="registro")return registro();
+  if(view?.t==="cal")return cal();
+  if(view?.t==="dia")return dia();
   ({hoje:telaHoje,progresso:telaProgresso,config:telaConfig})[tab]();
 }
 function go(k){tab=k;view=null;render();scrollTo(0,0)}
@@ -128,7 +149,7 @@ function telaHoje(){
   <div class="hero"><div class="eyebrow" style="color:#fff">Seu progresso hoje</div><div style="margin-top:14px"><b>${concl}</b>registro(s) de estudo concluídos.</div>
   <button onclick="go('progresso')">Ver detalhes</button></div>
   <h2>Hoje no seu ritmo</h2><div class="grid">
-  <div class="tile"><b style="color:var(--pk)">${hojeN}</b>prática hoje</div>
+  <button class="tile" onclick="abreCal()"><b style="color:var(--pk)">${pratica()[hoje()]?.p?1:0}</b>prática hoje</button>
   ${secoes.map(s=>{const l=conta(s.k);return `<button class="tile" onclick="abre('${s.k}')"><b style="color:${s.cor}">${l.filter(i=>f.has(i.id)).length}/${l.length}</b>${s.nome}</button>`}).join("")}
   </div>`;
 }
@@ -171,9 +192,91 @@ function telaProgresso(){
 }
 function telaConfig(){
   app.innerHTML=`<h1>Configurações</h1><div class="mut">Conectado como ${esc(user)}</div>
-  <h2>Dados</h2><p class="mut">Os registros ficam salvos apenas neste navegador.</p>
+  <h2>Ficha e backup</h2><p class="mut">A ficha reúne seus registros de estudo, o calendário de práticas e o progresso por seção.</p>
+  <button class="btn" onclick="nuvem()">☁️ Salvar na nuvem</button>
+  <button class="btn" style="margin-top:10px" onclick="baixar()">⬇️ Baixar ficha</button>
+  <button class="btn" style="margin-top:10px" onclick="imprimir()">🖨️ Imprimir ficha</button>
+  <button class="link" onclick="document.getElementById('rest').click()">Restaurar backup de um arquivo</button>
+  <input id="rest" type="file" accept=".json,application/json" hidden onchange="restaurar(this)">
+  <p id="msg" class="mut" style="min-height:18px"></p>
+  <h2>Dados</h2><p class="mut">Os registros ficam salvos neste navegador. Faça backup com frequência.</p>
   <button class="btn" onclick="sair()">Sair</button>
-  <button class="link" style="color:#ff8a80" onclick="if(confirm('Apagar todos os seus registros?')){salvaRegs([]);render()}">Apagar meus registros</button>`;
+  <button class="link" style="color:#ff8a80" onclick="if(confirm('Apagar todos os seus registros e o calendário de práticas?')){salvaRegs([]);salvaPratica({});render()}">Apagar meus registros</button>`;
+}
+/* ===== Calendário de prática ===== */
+const pratica=()=>ls.get("orn:pratica:"+user,{});
+const salvaPratica=p=>ls.set("orn:pratica:"+user,p);
+const MESES=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+const pad=n=>String(n).padStart(2,"0");
+const fmt=d=>d.split("-").reverse().join("/");
+let pr=true,notaTmp="";
+function abreCal(){view={t:"cal",ano:+hoje().slice(0,4)};render();scrollTo(0,0)}
+function cal(){
+  const p=pratica(),a=view.ano,h=hoje();let sim=0,nao=0;
+  Object.keys(p).forEach(d=>{if(d.startsWith(a+"-"))p[d].p?sim++:nao++});
+  app.innerHTML=`<button class="back" onclick="go('hoje')">← Voltar</button>
+  <div class="top" style="align-items:center"><button class="out" onclick="view.ano--;render()">‹</button><h1>${a}</h1><button class="out" onclick="view.ano++;render()">›</button></div>
+  <div class="mut" style="text-align:center">${sim} dia(s) com prática · ${nao} sem prática</div>
+  <div class="leg"><span><i style="background:#1f6f54"></i>Praticou</span><span><i style="background:#7a2a2a"></i>Não praticou</span><span><i style="background:#555"></i>Sem registro</span></div>
+  <div class="meses">${MESES.map((m,mi)=>{
+    const ini=new Date(a,mi,1).getDay(),dias=new Date(a,mi+1,0).getDate();
+    let c=["D","S","T","Q","Q","S","S"].map(x=>`<i class="wd">${x}</i>`).join("")+"<i></i>".repeat(ini);
+    for(let d=1;d<=dias;d++){const k=`${a}-${pad(mi+1)}-${pad(d)}`,r=p[k];
+      c+=`<button class="dia${r?(r.p?" sim":" nao"):""}${r&&r.n?" nt":""}${k===h?" hj":""}" onclick="abreDia('${k}')">${d}</button>`}
+    return `<div class="mes"><b>${m}</b><div class="cg">${c}</div></div>`}).join("")}</div>`;
+}
+function abreDia(k){const r=pratica()[k];pr=r?r.p:true;notaTmp=r?r.n||"":"";view={t:"dia",k,volta:view};render();scrollTo(0,0)}
+function dia(){
+  const k=view.k,tem=!!pratica()[k];
+  app.innerHTML=`<button class="back" onclick="view=view.volta;render()">← Voltar</button>
+  <h1>Prática do dia</h1><div class="mut">${fmt(k)}</div>
+  <label>Você praticou?</label><div class="seg">
+  <button class="${pr?"on":""}" onclick="pr=true;render()">✓ Praticou</button>
+  <button class="${!pr?"on":""}" onclick="pr=false;render()">✕ Não praticou</button></div>
+  <label>Anotações da prática</label>
+  <textarea oninput="notaTmp=this.value" placeholder="O que estudou, dificuldades, o que revisar...">${esc(notaTmp)}</textarea>
+  <button class="btn" onclick="salvaDia()">Salvar</button>
+  ${tem?'<button class="link" style="color:#ff8a80" onclick="apagaDia()">Remover este dia</button>':""}`;
+}
+function salvaDia(){const p=pratica();p[view.k]={p:pr,n:notaTmp.trim()};salvaPratica(p);view=view.volta;render()}
+function apagaDia(){const p=pratica();delete p[view.k];salvaPratica(p);view=view.volta;render()}
+
+/* ===== Ficha: nuvem, download, impressão, restauração ===== */
+const aviso=m=>{const e=document.getElementById("msg");if(e)e.textContent=m};
+function dados(){const us=ls.get("orn:usuarios",{})[user]||{};
+  return{app:"Organista no Ritmo",versao:1,exportado:new Date().toISOString(),usuario:user,instrumento:us.ins||"",registros:regs(),pratica:pratica()}}
+function arquivo(){return new File([JSON.stringify(dados(),null,2)],`organista-no-ritmo-${user}-${hoje()}.json`,{type:"application/json"})}
+function baixar(){const f=arquivo(),u=URL.createObjectURL(f),a=document.createElement("a");
+  a.href=u;a.download=f.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),1000);
+  aviso("Ficha baixada: "+f.name)}
+async function nuvem(){
+  const f=arquivo();
+  try{if(navigator.canShare&&navigator.canShare({files:[f]})){
+    await navigator.share({files:[f],title:"Backup Organista no Ritmo"});
+    return aviso("Na janela que abriu, escolha Google Drive, iCloud, OneDrive ou outro app de nuvem.")}}
+  catch(e){if(e&&e.name==="AbortError")return}
+  baixar();aviso("Este navegador não abre o menu de compartilhamento. A ficha foi baixada: envie o arquivo para seu Google Drive, iCloud ou OneDrive.")}
+function restaurar(el){
+  const fl=el.files[0];if(!fl)return;const rd=new FileReader();
+  rd.onload=()=>{try{const d=JSON.parse(rd.result);
+    if(!Array.isArray(d.registros)||typeof d.pratica!=="object")throw 0;
+    if(!confirm("Substituir seus dados atuais pelos do arquivo?"))return;
+    salvaRegs(d.registros);salvaPratica(d.pratica||{});aviso("Backup restaurado.")}
+  catch{aviso("Arquivo inválido. Use um arquivo .json baixado pelo aplicativo.")}};
+  rd.readAsText(fl)}
+function imprimir(){
+  const us=ls.get("orn:usuarios",{})[user]||{},r=regs(),p=pratica(),f=feitos();
+  const R={passou:"Passou",nao_passou:"Não passou",em_avaliacao:"Em avaliação"};
+  const resumo=secoes.map(s=>{const l=conta(s.k);return `<tr><td>${esc(s.nome)}</td><td>${l.filter(i=>f.has(i.id)).length}/${l.length}</td></tr>`}).join("");
+  const regsH=[...r].sort((a,b)=>a.data<b.data?-1:1).map(x=>{const i=porId[x.itemId];
+    return `<tr><td>${fmt(x.data)}</td><td>${esc(i?i.titulo+" ("+i.sub+")":x.itemId)}</td><td>${R[x.resultado]||""}</td><td>${esc(x.anotacoes||"")}</td></tr>`}).join("");
+  const diasH=Object.keys(p).sort().map(d=>`<tr><td>${fmt(d)}</td><td>${p[d].p?"Praticou":"Não praticou"}</td><td>${esc(p[d].n||"")}</td></tr>`).join("");
+  document.getElementById("print").innerHTML=`<h1>Ficha · Organista no Ritmo</h1>
+  <p>Aluno: <b>${esc(user)}</b>${us.ins?" · Instrumento: "+esc(us.ins):""}<br>Emitida em ${fmt(hoje())}</p>
+  <h2>Progresso por seção</h2><table><tr><th>Seção</th><th>Concluídos</th></tr>${resumo}</table>
+  <h2>Registros de estudo</h2><table><tr><th>Data</th><th>Item</th><th>Resultado</th><th>Anotações</th></tr>${regsH||'<tr><td colspan="4">Nenhum registro.</td></tr>'}</table>
+  <h2>Calendário de prática</h2><table><tr><th>Data</th><th>Situação</th><th>Anotações</th></tr>${diasH||'<tr><td colspan="3">Nenhum dia registrado.</td></tr>'}</table>`;
+  window.print();
 }
 render();
 </script>
