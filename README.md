@@ -24,7 +24,7 @@ Aplicativo para organistas acompanharem o progresso de estudo: escalas, hinos, c
 | Volume 2 | 20 exercícios + 30 estudos | 50 |
 | Volume 3 | 10 exercícios + 25 estudos | 35 |
 | Volume 4 | 10 exercícios + 12 estudos | 22 |
-| MSA | Fases 1 a 16 | 16 |
+| MSA | 16 fases + 113 exercícios | 129 |
 
 ### Escalas
 
@@ -77,7 +77,8 @@ export const catalogo: Item[] = [
   ...volume(2, 20, 30),
   ...volume(3, 10, 25),
   ...volume(4, 10, 12),
-  ...seq(16, i => ({ id: `msa-${i}`, secao: "msa", grupo: "MSA", titulo: `Fase ${i}`, subtitulo: "MSA" })),
+  ...seq(16, i => ({ id: `msa-${i}`, secao: "msa", grupo: "MSA · Fases", titulo: `Fase ${i}`, subtitulo: "MSA" })),
+  ...seq(113, i => ({ id: `msa-exercicio-${i}`, secao: "msa", grupo: "MSA · Exercícios", titulo: `Exercício ${i}`, subtitulo: "MSA" })),
 ];
 ```
 

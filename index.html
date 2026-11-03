@@ -89,10 +89,11 @@ const catalogo=[
   ...seq(480,i=>it("hino-"+i,"hinos","Hinos","Hino "+i,"Hino")),
   ...seq(5,i=>it("coro-"+i,"hinos","Coros","Coro "+i,"Coro")),
   ...volume(1,22,40,[131,158,468]),...volume(2,20,30),...volume(3,10,25),...volume(4,10,12),
-  ...seq(16,i=>it("msa-"+i,"msa","MSA","Fase "+i,"MSA"))];
+  ...seq(16,i=>it("msa-"+i,"msa","MSA · Fases","Fase "+i,"MSA")),
+  ...seq(113,i=>it("msa-exercicio-"+i,"msa","MSA · Exercícios","Exercício "+i,"MSA"))];
 const porId=Object.fromEntries(catalogo.map(i=>[i.id,i]));
 const secoes=[
-  {k:"msa",nome:"fases MSA",cor:"#38bdf8"},{k:"escalas",nome:"escalas",cor:"#e040fb"},
+  {k:"msa",nome:"MSA",cor:"#38bdf8"},{k:"escalas",nome:"escalas",cor:"#e040fb"},
   {k:"hinos",nome:"hinos",cor:"#fb923c"},{k:"volume1",nome:"Volume 1",cor:"#3b82f6"},
   {k:"volume2",nome:"Volume 2",cor:"#fb923c"},{k:"volume3",nome:"Volume 3",cor:"#e040fb"},
   {k:"volume4",nome:"Volume 4",cor:"#6ee7b7"}];
