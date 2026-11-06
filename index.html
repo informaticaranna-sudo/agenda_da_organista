@@ -94,7 +94,7 @@ function volume(v,ex,es,hinos=[]){const s="volume"+v,g="Volume "+v;
   return[...seq(ex,i=>it(`${s}-exercicio-${i}`,s,g+" · Exercícios","Exercício "+i,g)),
          ...seq(es,i=>it(`${s}-estudo-${i}`,s,g+" · Estudos","Estudo "+i,g)),
          ...hinos.map(h=>it(`${s}-hino-${h}`,s,g+" · Hinos","Hino "+h,g))]}
-const catalogo=[
+const baseCat=[
   ...maiores.map(n=>it("escala-maior-"+n,"escalas","Escalas Maiores",n+" Maior","Escala Maior")),
   ...menores.map(n=>it("escala-menor-"+n,"escalas","Escalas Menores",n+" Menor","Escala Menor")),
   ...seq(480,i=>it("hino-"+i,"hinos","Hinos","Hino "+i,"Hino")),
@@ -102,14 +102,22 @@ const catalogo=[
   ...volume(1,22,40,[131,158,468]),...volume(2,20,30),...volume(3,10,25),...volume(4,10,12),
   ...seq(16,i=>it("msa-"+i,"msa","MSA · Fases","Fase "+i,"MSA")),
   ...seq(113,i=>it("msa-exercicio-"+i,"msa","MSA · Exercícios","Exercício "+i,"MSA"))];
-const porId=Object.fromEntries(catalogo.map(i=>[i.id,i]));
-const secoes=[
+const baseSecoes=[
   {k:"msa",nome:"MSA",cor:"#38bdf8"},{k:"escalas",nome:"escalas",cor:"#e040fb"},
   {k:"hinos",nome:"hinos",cor:"#fb923c"},{k:"volume1",nome:"Volume 1",cor:"#3b82f6"},
   {k:"volume2",nome:"Volume 2",cor:"#fb923c"},{k:"volume3",nome:"Volume 3",cor:"#e040fb"},
   {k:"volume4",nome:"Volume 4",cor:"#6ee7b7"}];
 /* Contador de hinos considera só o grupo "Hinos" (coros ficam fora dos 480). */
-const conta=k=>catalogo.filter(i=>i.secao===k&&i.grupo!=="Coros");
+const conta=k=>catalogo().filter(i=>i.secao===k&&i.grupo!=="Coros");
+/* Métodos e exercícios cadastrados pelo usuário (ficam salvos junto com os registros) */
+const CORES=["#38bdf8","#e040fb","#fb923c","#3b82f6","#6ee7b7","#facc15","#f87171"];
+const uid=()=>Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-3);
+let _cat=null;
+const extras=()=>{const e=ls.get("orn:extras:"+user,{});return{secoes:e.secoes||[],itens:e.itens||[]}};
+const salvaExtras=e=>{ls.set("orn:extras:"+user,e);_cat=null};
+const catalogo=()=>_cat||(_cat=[...baseCat,...extras().itens]);
+const porId=id=>catalogo().find(i=>i.id===id);
+const secoes=()=>[...baseSecoes,...extras().secoes];
 
 /* ===== Armazenamento ===== */
 const ls={get(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}},
@@ -117,7 +125,7 @@ const ls={get(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch{retur
 let user=ls.get("orn:sessao",null), tab="hoje", view=null;
 const regs=()=>ls.get("orn:regs:"+user,[]);
 const salvaRegs=r=>ls.set("orn:regs:"+user,r);
-const hoje=()=>new Date().toISOString().slice(0,10);
+const hoje=()=>{const d=new Date();return new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10)};
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const feitos=()=>new Set(regs().filter(r=>r.resultado==="passou").map(r=>r.itemId));
 
@@ -132,6 +140,7 @@ function render(){
     .map(([k,i,n])=>`<button class="${tab===k&&!view?"on":""}" onclick="go('${k}')">${i}<br>${n}</button>`).join("");
   if(view?.t==="lista")return lista();
   if(view?.t==="registro")return registro();
+  if(view?.t==="novoitem")return formItens();
   if(view?.t==="cal")return cal();
   if(view?.t==="dia")return dia();
   ({hoje:telaHoje,progresso:telaProgresso,config:telaConfig})[tab]();
@@ -155,7 +164,7 @@ function entrar(){
     if(us[lg])return erro("Este login já existe.");
     us[lg]={sn,ins:lgv("ins").trim()};ls.set("orn:usuarios",us);
   }else if(!us[lg]||us[lg].sn!==sn)return erro("Login ou senha incorretos.");
-  user=lg;ls.set("orn:sessao",user);tab="hoje";view=null;render();
+  user=lg;_cat=null;ls.set("orn:sessao",user);tab="hoje";view=null;render();
 }
 const lgv=id=>document.getElementById(id).value;
 
@@ -170,44 +179,102 @@ function telaHoje(){
   <button onclick="go('progresso')">Ver detalhes</button></div>
   <h2>Hoje no seu ritmo</h2><div class="grid">
   <button class="tile" onclick="abreCal()"><b style="color:var(--pk)">${pratica()[hoje()]?.p?1:0}</b>prática hoje</button>
-  ${secoes.map(s=>{const l=conta(s.k);return `<button class="tile" onclick="abre('${s.k}')"><b style="color:${s.cor}">${l.filter(i=>f.has(i.id)).length}/${l.length}</b>${s.nome}</button>`}).join("")}
+  ${secoes().map(s=>{const l=conta(s.k);return `<button class="tile" onclick="abre('${s.k}')"><b style="color:${s.cor}">${l.filter(i=>f.has(i.id)).length}/${l.length}</b>${esc(s.nome)}</button>`}).join("")}
+  <button class="tile" style="border:2px dashed #444" onclick="novoMetodo()"><b style="color:var(--pk)">＋</b>novo método</button>
   </div>`;
 }
-function sair(){user=null;ls.set("orn:sessao",null);render()}
+function sair(){user=null;_cat=null;ls.set("orn:sessao",null);render()}
 
 function abre(k){view={t:"lista",k};render();scrollTo(0,0)}
+function ultPassou(){const m={};regs().forEach((r,i)=>{if(r.resultado==="passou"&&(!m[r.itemId]||r.data>=m[r.itemId].r.data))m[r.itemId]={r,i}});return m}
+const fmtc=d=>d?d.slice(8)+"/"+d.slice(5,7)+"/"+d.slice(2,4):"";
 function lista(){
-  const f=feitos(),nome=secoes.find(s=>s.k===view.k).nome;let g="";
-  app.innerHTML=`<button class="back" onclick="go('${tab}')">← Voltar</button><h1 style="text-transform:capitalize">${nome}</h1>`+
-  catalogo.filter(i=>i.secao===view.k).map(i=>{
-    const h=i.grupo!==g?`<div class="grp">${esc(i.grupo)}</div>`:"";g=i.grupo;
-    return h+`<div class="row"><div class="ico">♪</div><div class="t"><b>${esc(i.titulo)}</b><span>${esc(i.sub)}</span></div>
-    <button class="mk ${f.has(i.id)?"done":""}" onclick="marcar('${i.id}')">${f.has(i.id)?"✓ Marcado":"Marcar"}</button></div>`}).join("");
+  const reg=ultPassou(),s=secoes().find(x=>x.k===view.k),grupos=new Map();
+  catalogo().filter(i=>i.secao===view.k).forEach(i=>{if(!grupos.has(i.grupo))grupos.set(i.grupo,[]);grupos.get(i.grupo).push(i)});
+  const row=i=>{const u=reg[i.id];return `<div class="row"><div class="ico">♪</div><div class="t"><b>${esc(i.titulo)}</b><span>${esc(i.sub)}</span></div>
+    ${u?`<button class="mk done" title="Alterar a data" onclick="editaReg(${u.i})">✓ ${fmtc(u.r.data)} ✎</button>`:`<button class="mk" onclick="marcar('${i.id}')">Marcar</button>`}
+    ${i.extra?`<button class="mk" title="Remover item" onclick="apagaItem('${i.id}')">🗑</button>`:""}</div>`};
+  app.innerHTML=`<button class="back" onclick="go('${tab}')">← Voltar</button><h1 style="text-transform:capitalize">${esc(s.nome)}</h1>
+  <button class="btn" style="margin:6px 0 4px" onclick="novoItem('${view.k}')">＋ Adicionar exercício / item</button>
+  ${s.extra?`<button class="link" style="color:#ff8a80;margin-top:4px" onclick="apagaMetodo('${view.k}')">Excluir este método</button>`:""}`+
+  (grupos.size?[...grupos].map(([g,l])=>`<div class="grp">${esc(g)}</div>`+l.map(row).join("")).join(""):'<div class="mut" style="margin-top:14px">Nenhum item ainda. Use o botão acima para adicionar.</div>');
 }
 
-function marcar(id){view={t:"registro",id,volta:view};resultado="passou";render();scrollTo(0,0)}
+/* ----- Registrar / editar progresso ----- */
+let dtTmp="",anTmp="";
+const nova=v=>v&&v.t==="registro"?v.volta:v;
+function marcar(id){view={t:"registro",id,volta:nova(view)};resultado="passou";dtTmp=hoje();anTmp="";render();scrollTo(0,0)}
+function editaReg(idx){const r=regs()[idx];view={t:"registro",id:r.itemId,idx,volta:nova(view)};resultado=r.resultado;dtTmp=r.data;anTmp=r.anotacoes||"";render();scrollTo(0,0)}
+function setRes(k){dtTmp=document.getElementById("dt").value;anTmp=document.getElementById("an").value;resultado=k;render()}
 function registro(){
-  const i=porId[view.id],hist=regs().filter(r=>r.itemId===view.id).reverse();
+  const i=porId(view.id),ed=view.idx!=null;
+  const hist=regs().map((r,x)=>({r,x})).filter(o=>o.r.itemId===view.id).reverse();
   const R={passou:"✓ Passou",nao_passou:"✕ Não passou",em_avaliacao:"⏳ Em avaliação"};
   app.innerHTML=`<button class="back" onclick="view=view.volta;render()">← Voltar</button>
-  <h1>Registrar progresso</h1><div class="mut">${esc(i.titulo)} · ${esc(i.sub)}</div>
-  <label>Resultado</label><div class="seg">${Object.entries(R).map(([k,n])=>`<button class="${resultado===k?"on":""}" onclick="resultado='${k}';render()">${n}</button>`).join("")}</div>
-  <label>Data que foi passada / Conclusão</label><input id="dt" type="date" value="${hoje()}">
-  <label>Anotações</label><textarea id="an" placeholder="Descreva dificuldades, evolução, o que revisar..."></textarea>
-  <button class="btn" onclick="salvar()">Salvar</button>
-  <h2>Histórico</h2>${hist.length?hist.map(r=>`<div class="hist"><b>${R[r.resultado]}</b> · ${r.data.split("-").reverse().join("/")}<br><span class="mut">${esc(r.anotacoes||"Sem anotações")}</span></div>`).join(""):'<div class="mut">Nenhum registro anterior.</div>'}`;
+  <h1>${ed?"Editar registro":"Registrar progresso"}</h1><div class="mut">${esc(i.titulo)} · ${esc(i.sub)}</div>
+  <label>Resultado</label><div class="seg">${Object.entries(R).map(([k,n])=>`<button class="${resultado===k?"on":""}" onclick="setRes('${k}')">${n}</button>`).join("")}</div>
+  <label>Data que foi passada / Conclusão</label><input id="dt" type="date" value="${esc(dtTmp)}">
+  <label>Anotações</label><textarea id="an" placeholder="Descreva dificuldades, evolução, o que revisar...">${esc(anTmp)}</textarea>
+  <button class="btn" onclick="salvar()">${ed?"Salvar alterações":"Salvar"}</button>
+  ${ed?`<button class="link" onclick="marcar('${view.id}')">＋ Novo registro para este item</button><button class="link" style="color:#ff8a80;margin-top:6px" onclick="apagaReg()">Excluir este registro</button>`:""}
+  <h2>Histórico</h2>${hist.length?hist.map(o=>`<div class="hist"><div style="display:flex;justify-content:space-between;align-items:center"><span><b>${R[o.r.resultado]}</b> · ${fmt(o.r.data)}</span>${o.x===view.idx?'<span class="mut">editando</span>':`<button class="mk" onclick="editaReg(${o.x})">✎ Editar</button>`}</div><span class="mut">${esc(o.r.anotacoes||"Sem anotações")}</span></div>`).join(""):'<div class="mut">Nenhum registro anterior.</div>'}`;
 }
 function salvar(){
-  const d=document.getElementById("dt").value||hoje(),a=document.getElementById("an").value;
-  const r=regs();r.push({itemId:view.id,resultado,data:d,anotacoes:a,criado:hoje()});salvaRegs(r);
-  view=view.volta;render();
+  const d=document.getElementById("dt").value||hoje(),a=document.getElementById("an").value,r=regs();
+  if(view.idx!=null&&r[view.idx])r[view.idx]={...r[view.idx],resultado,data:d,anotacoes:a};
+  else r.push({itemId:view.id,resultado,data:d,anotacoes:a,criado:hoje()});
+  salvaRegs(r);view=view.volta;render();
+}
+function apagaReg(){if(!confirm("Excluir este registro?"))return;const r=regs();r.splice(view.idx,1);salvaRegs(r);view=view.volta;render()}
+
+/* ----- Novos métodos e exercícios ----- */
+function novoItem(k){view={t:"novoitem",k,volta:view};render();scrollTo(0,0)}
+function novoMetodo(){view={t:"novoitem",k:null,volta:view};render();scrollTo(0,0)}
+function formItens(){
+  const k=view.k,s=k&&secoes().find(x=>x.k===k);
+  const gr=k?[...new Set(catalogo().filter(i=>i.secao===k).map(i=>i.grupo))]:[];
+  app.innerHTML=`<button class="back" onclick="view=view.volta;render()">← Voltar</button>
+  <h1>${k?"Adicionar item":"Novo método"}</h1>
+  <div class="mut">${k?esc(s.nome):"Cadastre um método (ex.: Bona, Czerny, outro livro) e seus exercícios."}</div>
+  ${k?`<label>Grupo</label><input id="gr" list="grs" value="Adicionados" placeholder="Ex.: Exercícios"><datalist id="grs">${gr.map(g=>`<option value="${esc(g)}">`).join("")}</datalist>`
+     :`<label>Nome do método</label><input id="nm" placeholder="Ex.: Método Bona">`}
+  <label>Gerar numerados (opcional)</label>
+  <div style="display:flex;gap:10px"><input id="pf" value="Exercício" placeholder="Prefixo" style="flex:2"><input id="de" type="number" min="0" value="1" placeholder="De" style="flex:1"><input id="ate" type="number" min="0" placeholder="Até" style="flex:1"></div>
+  <label>Ou digite os nomes, um por linha</label>
+  <textarea id="ls" placeholder="Lição 1&#10;Lição 2&#10;Peça de Bach"></textarea>
+  <p id="erro" class="mut" style="color:#ff8a80;min-height:18px"></p>
+  <button class="btn" onclick="salvaItens()">Salvar</button>`;
+}
+function salvaItens(){
+  const v=id=>document.getElementById(id).value,erro=m=>document.getElementById("erro").textContent=m;
+  const e=extras();let k=view.k,s=k&&secoes().find(x=>x.k===k),g;
+  const nomes=[],pf=v("pf").trim()||"Item",de=v("de")===""?1:+v("de"),ate=v("ate")===""?null:+v("ate");
+  if(ate!==null){if(!(ate>=de)||ate-de>=500)return erro("Confira os números (máximo 500 itens por vez).");for(let n=de;n<=ate;n++)nomes.push(pf+" "+n)}
+  v("ls").split("\n").map(x=>x.trim()).filter(Boolean).forEach(x=>nomes.push(x));
+  if(!nomes.length)return erro("Informe ao menos um item.");
+  if(!k){const nm=v("nm").trim();if(!nm)return erro("Dê um nome ao método.");
+    k="x_"+uid();s={k,nome:nm,cor:CORES[e.secoes.length%CORES.length],extra:true};e.secoes.push(s);g="Exercícios"}
+  else g=v("gr").trim()||"Adicionados";
+  nomes.forEach(n=>e.itens.push({id:"x_"+uid(),secao:k,grupo:g,titulo:n,sub:s.nome,extra:true}));
+  salvaExtras(e);
+  view=view.k?view.volta:{t:"lista",k};render();scrollTo(0,0);
+}
+function apagaItem(id){
+  if(!confirm("Remover este item e os registros dele?"))return;
+  const e=extras();e.itens=e.itens.filter(i=>i.id!==id);salvaExtras(e);salvaRegs(regs().filter(r=>r.itemId!==id));render();
+}
+function apagaMetodo(k){
+  if(!confirm("Excluir este método, todos os itens e os registros dele?"))return;
+  const e=extras(),ids=new Set(e.itens.filter(i=>i.secao===k).map(i=>i.id));
+  e.secoes=e.secoes.filter(x=>x.k!==k);e.itens=e.itens.filter(i=>i.secao!==k);salvaExtras(e);
+  salvaRegs(regs().filter(r=>!ids.has(r.itemId)));go("hoje");
 }
 
 function telaProgresso(){
   const f=feitos(),r=regs();
   app.innerHTML=`<h1>Progresso</h1><div class="mut">${r.length} registro(s) no total · ${f.size} item(ns) concluído(s)</div><h2>Por seção</h2>`+
-  secoes.map(s=>{const l=conta(s.k),n=l.filter(i=>f.has(i.id)).length,p=Math.round(n/l.length*100);
-    return `<div class="row" style="display:block;cursor:pointer" onclick="abre('${s.k}')"><div style="display:flex;justify-content:space-between"><b style="text-transform:capitalize">${s.nome}</b><span class="mut">${n}/${l.length}</span></div>
+  secoes().map(s=>{const l=conta(s.k),n=l.filter(i=>f.has(i.id)).length,p=Math.round(n/l.length*100);
+    return `<div class="row" style="display:block;cursor:pointer" onclick="abre('${s.k}')"><div style="display:flex;justify-content:space-between"><b style="text-transform:capitalize">${esc(s.nome)}</b><span class="mut">${n}/${l.length}</span></div>
     <div style="height:8px;background:#333;border-radius:9px;margin-top:10px"><div style="height:8px;width:${p}%;background:${s.cor};border-radius:9px"></div></div></div>`}).join("");
 }
 function telaConfig(){
@@ -265,7 +332,7 @@ function apagaDia(){const p=pratica();delete p[view.k];salvaPratica(p);view=view
 /* ===== Ficha: nuvem, download, impressão, restauração ===== */
 const aviso=m=>{const e=document.getElementById("msg");if(e)e.textContent=m};
 function dados(){const us=ls.get("orn:usuarios",{})[user]||{};
-  return{app:"Organista no Ritmo",versao:1,exportado:new Date().toISOString(),usuario:user,instrumento:us.ins||"",registros:regs(),pratica:pratica()}}
+  return{app:"Organista no Ritmo",versao:1,exportado:new Date().toISOString(),usuario:user,instrumento:us.ins||"",registros:regs(),pratica:pratica(),extras:extras()}}
 function arquivo(){return new File([JSON.stringify(dados(),null,2)],`organista-no-ritmo-${user}-${hoje()}.json`,{type:"application/json"})}
 function baixar(){const f=arquivo(),u=URL.createObjectURL(f),a=document.createElement("a");
   a.href=u;a.download=f.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),1000);
@@ -282,14 +349,14 @@ function restaurar(el){
   rd.onload=()=>{try{const d=JSON.parse(rd.result);
     if(!Array.isArray(d.registros)||typeof d.pratica!=="object")throw 0;
     if(!confirm("Substituir seus dados atuais pelos do arquivo?"))return;
-    salvaRegs(d.registros);salvaPratica(d.pratica||{});aviso("Backup restaurado.")}
+    salvaRegs(d.registros);salvaPratica(d.pratica||{});if(d.extras)salvaExtras(d.extras);aviso("Backup restaurado.")}
   catch{aviso("Arquivo inválido. Use um arquivo .json baixado pelo aplicativo.")}};
   rd.readAsText(fl)}
 function imprimir(){
   const us=ls.get("orn:usuarios",{})[user]||{},r=regs(),p=pratica(),f=feitos();
   const R={passou:"Passou",nao_passou:"Não passou",em_avaliacao:"Em avaliação"};
-  const resumo=secoes.map(s=>{const l=conta(s.k);return `<tr><td>${esc(s.nome)}</td><td>${l.filter(i=>f.has(i.id)).length}/${l.length}</td></tr>`}).join("");
-  const regsH=[...r].sort((a,b)=>a.data<b.data?-1:1).map(x=>{const i=porId[x.itemId];
+  const resumo=secoes().map(s=>{const l=conta(s.k);return `<tr><td>${esc(s.nome)}</td><td>${l.filter(i=>f.has(i.id)).length}/${l.length}</td></tr>`}).join("");
+  const regsH=[...r].sort((a,b)=>a.data<b.data?-1:1).map(x=>{const i=porId(x.itemId);
     return `<tr><td>${fmt(x.data)}</td><td>${esc(i?i.titulo+" ("+i.sub+")":x.itemId)}</td><td>${R[x.resultado]||""}</td><td>${esc(x.anotacoes||"")}</td></tr>`}).join("");
   const diasH=Object.keys(p).sort().map(d=>`<tr><td>${fmt(d)}</td><td>${p[d].p?"Praticou":"Não praticou"}</td><td>${esc(p[d].n||"")}</td></tr>`).join("");
   document.getElementById("print").innerHTML=`<h1>Ficha · Organista no Ritmo</h1>
